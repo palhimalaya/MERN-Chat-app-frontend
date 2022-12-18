@@ -10,6 +10,7 @@ const UserBadgeItem = ({ user, handleFunction, admin }) => {
       m={1}
       mb={2}
       variant="solid"
+      textTransform={"capitalize"}
       fontSize={12}
       colorScheme="purple"
       cursor="pointer"

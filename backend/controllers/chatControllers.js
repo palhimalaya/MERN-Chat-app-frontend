@@ -102,6 +102,9 @@ const createGroupChat = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Rename Group
+// @route   PUT /api/chat/rename
+// @access  Protected
 const renameGroup = asyncHandler(async (req, res) => {
   const { chatId, chatName } = req.body;
 
