@@ -95,7 +95,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         title: "Error Occured!",
-        description: error.response.data,
+        description: error.response.data.message,
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -151,7 +151,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
     } catch (error) {
       toast({
         title: "Error Occured!",
-        description: error.response.data,
+        description: error.response.data.message,
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -162,10 +162,70 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
     setGroupChatName("");
   };
 
+  const leaveGroup = async (user1) => {
+    if (
+      selectedChat.groupAdmin._id === user1._id &&
+      selectedChat.users.length > 1
+    ) {
+      toast({
+        title: "Admin cannot leave the group!",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const config = {
+        headers: {
+          Authorization: `Bearer ${user.token}`,
+        },
+      };
+      const { data } = await axios.put(
+        `http://localhost:3001/api/chat/groupremove`,
+        {
+          chatId: selectedChat._id,
+          userId: user1._id,
+        },
+        config
+      );
+
+      setSelectedChat(data);
+      setFetchAgain(!fetchAgain);
+      setLoading(false);
+      window.location.reload();
+    } catch (error) {
+      toast({
+        title: "Error Occured!",
+        description: error.response.data.message,
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+      setLoading(false);
+    }
+  };
+
   const handleRemove = async (user1) => {
     if (selectedChat.groupAdmin._id !== user._id && user1._id !== user._id) {
       toast({
         title: "Only admins can remove someone!",
+        status: "error",
+        duration: 5000,
+        isClosable: true,
+        position: "bottom",
+      });
+      return;
+    } else if (
+      selectedChat.groupAdmin._id === user1._id &&
+      selectedChat.users.length > 1
+    ) {
+      toast({
+        title: "Admin cannot be removed!",
         status: "error",
         duration: 5000,
         isClosable: true,
@@ -278,7 +338,7 @@ const UpdateGroupChatModal = ({ fetchMessages, fetchAgain, setFetchAgain }) => {
             )}
           </ModalBody>
           <ModalFooter>
-            <Button onClick={() => handleRemove(user)} colorScheme="red">
+            <Button onClick={() => leaveGroup(user)} colorScheme="red">
               Leave Group
             </Button>
           </ModalFooter>

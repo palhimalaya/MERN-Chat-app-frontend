@@ -139,7 +139,7 @@ function SideDrawer() {
           </Button>
         </Tooltip>
         <Text fontSize="2xl" fontFamily="Work sans">
-          MERN CHAT APP
+          E2E CHAT APP
         </Text>
         <div>
           <Menu>
