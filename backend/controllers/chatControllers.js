@@ -132,12 +132,11 @@ const removeFromGroup = asyncHandler(async (req, res) => {
   const { chatId, userId } = req.body;
 
   // check if the requester is admin
-  const chat = await Chat.findById(chatId);
-  if (chat.groupAdmin.toString() !== req.user._id.toString()) {
-    res.status(401);
-    throw new Error("You are not the admin of this group");
-  }
-
+  // const chat = await Chat.findById(chatId);
+  // if (chat.groupAdmin.toString() !== req.user._id.toString()) {
+  //   res.status(401);
+  //   throw new Error("You are not the admin of this group");
+  // }
   const removed = await Chat.findByIdAndUpdate(
     chatId,
     {
