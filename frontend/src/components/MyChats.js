@@ -37,6 +37,9 @@ const MyChats = ({ fetchAgain }) => {
         isClosable: true,
         position: "bottom-left",
       });
+
+      //for just temporary use
+      localStorage.removeItem("userInfo");
     }
   };
   useEffect(() => {
