@@ -21,6 +21,7 @@
     "framer-motion": "^6.4.3",
     "jsonwebtoken": "^8.5.1",
     "mongoose": "^6.4.4",
-    "nodemon": "^2.0.19"
+    "nodemon": "^2.0.19",
+    "socket.io": "^4.5.4"
   }
 }
