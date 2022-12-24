@@ -24,6 +24,25 @@ const Signup = () => {
   const [pic, setPic] = useState("");
   const [picLoading, setPicLoading] = useState(false);
 
+  const generateRSAKeyPair = async () => {
+    //call rsa api
+    const { data } = await axios.get(
+      "http://localhost:3001/api/key/generateKeyPair"
+    );
+    if (data) {
+      const keyPair = {
+        publicKey: data.publicKey,
+        privateKey: data.privateKey,
+      };
+
+      // Convert the object to a JSON string
+      const keyPairJSON = JSON.stringify(keyPair);
+
+      // Store the JSON string in local storage
+      localStorage.setItem("keyPair", keyPairJSON);
+    }
+  };
+
   const handleClick = () => {
     setShow(!show);
   };
@@ -73,6 +92,9 @@ const Signup = () => {
 
   const submitHandler = async () => {
     setPicLoading(true);
+
+    ///run below code after completing rsa so check if rsa is complete or not
+
     if (!name || !email || !password || !confirmPassword) {
       toast({
         title: "Please Fill all the Feilds",
@@ -94,7 +116,7 @@ const Signup = () => {
       });
       return;
     }
-    console.log(name, email, password, pic);
+    // console.log(name, email, password, pic);
     try {
       const config = {
         headers: {
@@ -111,7 +133,7 @@ const Signup = () => {
         },
         config
       );
-      console.log(data);
+      // console.log(data);
       toast({
         title: "Registration Successful",
         status: "success",
@@ -120,6 +142,7 @@ const Signup = () => {
         position: "bottom",
       });
       localStorage.setItem("userInfo", JSON.stringify(data));
+      generateRSAKeyPair();
       setPicLoading(false);
       navigate("/chats");
     } catch (error) {

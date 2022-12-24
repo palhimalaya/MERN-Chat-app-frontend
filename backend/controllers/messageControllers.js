@@ -12,7 +12,7 @@ const sendMessage = asyncHandler(async (req, res) => {
   }
   var newMessage = {
     sender: req.user._id,
-    content: content,
+    content: content.toString(),
     chat: chatId,
   };
   try {

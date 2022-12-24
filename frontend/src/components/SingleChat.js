@@ -24,8 +24,17 @@ import animationData from "../animations/typing.json";
 const ENDPOINT = "http://localhost:3001";
 var socket, selectedChatCompare;
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
-  const { user, selectedChat, setSelectedChat, notification, setNotification } =
-    useContext(ChatContext);
+  const {
+    user,
+    selectedChat,
+    setSelectedChat,
+    notification,
+    setNotification,
+    publicKey,
+    setPublicKey,
+    privateKey,
+    setPrivateKey,
+  } = useContext(ChatContext);
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState();
@@ -33,6 +42,64 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [socketConnected, setSocketConnected] = useState(false);
   const [typing, setTyping] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+
+  const [othersPublicKey, setOthersPublicKey] = useState();
+
+  const [localMessage, setLocalMessage] = useState([]);
+  const [latestLocalMessage, setLatestLocalMessage] = useState();
+
+  var a;
+
+  // Access the public and private keys
+
+  useEffect(() => {
+    // Retrieve the JSON string from local storage
+    const keyPairJSON = localStorage.getItem("keyPair");
+
+    // Convert the JSON string back into an object
+    const keyPair = JSON.parse(keyPairJSON);
+    if (!keyPair) {
+      return;
+    } else {
+      var pKey = keyPair.publicKey;
+      var prKey = keyPair.privateKey;
+    }
+
+    setPublicKey(pKey);
+    setPrivateKey(prKey);
+    console.log("public key", publicKey);
+  }, []);
+
+  const encryptMessage = async () => {
+    const postData = {
+      message: newMessage,
+      publicKey: othersPublicKey,
+    };
+
+    const { data } = await axios.post(
+      "http://localhost:3001/api/key/encryptData",
+      postData
+    );
+
+    const { encryptedResult } = data;
+
+    return encryptedResult;
+  };
+
+  const decryptMessage = async (m) => {
+    const postData = {
+      message: m,
+      privateKey: privateKey,
+    };
+
+    const { data } = await axios.post(
+      "http://localhost:3001/api/key/decryptData",
+      postData
+    );
+    const { decryptedResult } = data;
+    console.log(decryptedResult);
+    return data;
+  };
 
   const defaultOptions = {
     loop: true,
@@ -57,9 +124,13 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         `http://localhost:3001/api/message/${selectedChat._id}`,
         config
       );
+
       setMessages(data);
       setLoading(false);
-      socket.emit("join chat", selectedChat._id);
+      socket.emit("join chat", {
+        room: selectedChat._id,
+        publicKey: publicKey,
+      });
     } catch (error) {
       toast({
         title: "Error Occurred! ",
@@ -75,6 +146,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const sendMessage = async (e) => {
     if (e.key === "Enter" && newMessage) {
       socket.emit("stop typing", selectedChat._id);
+      a = await encryptMessage().then((res) => {
+        return res;
+      });
+
+      const encryptedMessage = a.data;
+
+      // console.log(encryptedResult.data);
+
       try {
         const config = {
           headers: {
@@ -86,7 +165,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         const { data } = await axios.post(
           "http://localhost:3001/api/message",
           {
-            content: newMessage,
+            content: encryptedMessage,
             chatId: selectedChat._id,
           },
           config
@@ -95,7 +174,12 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         //sending message from socket
         socket.emit("new message", data);
 
-        setMessages([...messages, data]);
+        const updatedMessageReceived = {
+          ...data,
+          content: newMessage,
+        };
+        localStorage.setItem("localMessages", updatedMessageReceived);
+        setMessages([...messages, updatedMessageReceived]);
       } catch (error) {
         toast({
           title: "Error Occurred! ",
@@ -115,6 +199,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     socket.on("connected", () => setSocketConnected(true));
     socket.on("typing", () => setIsTyping(true));
     socket.on("stop typing", () => setIsTyping(false));
+
     // eslint-disable-next-line
   }, []);
 
@@ -122,30 +207,48 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     fetchMessages();
 
     selectedChatCompare = selectedChat;
+    socket.on("public key", (data) => {
+      localStorage.setItem("othersPublicKey", data);
+
+      // console.log(data); // prints the value of the additionalData property
+    });
+    const othersKey = localStorage.getItem("othersPublicKey");
+    setOthersPublicKey(othersKey);
+    // console.log(othersKey);
 
     // eslint-disable-next-line
   }, [selectedChat]);
 
   useEffect(() => {
-    socket.on("message received", (newMessageReceived) => {
+    socket.on("message received", ({ newMessageReceived }) => {
+      // console.log("message received", newMessageReceived.content
+      const data = {
+        ...newMessageReceived,
+        chat: { ...newMessageReceived.chat },
+      };
+
+      console.log("message received", data.chat._id);
       if (
         !selectedChatCompare || // if chat is not selected or doesn't match current chat
         selectedChatCompare._id !== newMessageReceived.chat._id
       ) {
         //give notification
-        if (!notification.includes(newMessageReceived)) {
-          setNotification([newMessageReceived, ...notification]);
+        if (!notification.includes(data)) {
+          setNotification([data, ...notification]);
           //save notification to localstorage
 
           setFetchAgain(!fetchAgain);
         }
       } else {
-        setMessages([...messages, newMessageReceived]);
+        setLatestLocalMessage(data.chat.content);
+        setLocalMessage([...localMessage, data.chat.content]);
+
+        setMessages([...messages, data]);
       }
     });
   });
 
-  const typingHandle = (e) => {
+  const typingHandle = async (e) => {
     setNewMessage(e.target.value);
 
     if (!socketConnected) return;

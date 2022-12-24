@@ -3,10 +3,12 @@ import MyChats from "../components/MyChats";
 import SideDrawer from "../components/miscellaneous/SideDrawer";
 import { ChatContext } from "../Context/ChatProvider";
 import { useContext, useState } from "react";
+import { useEffect } from "react";
 
 const ChatPage = () => {
   const { user } = useContext(ChatContext);
   const [fetchAgain, setFetchAgain] = useState(false);
+
   return (
     <div style={{ width: "100%" }}>
       {user && <SideDrawer />}

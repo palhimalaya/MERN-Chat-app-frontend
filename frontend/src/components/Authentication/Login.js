@@ -11,6 +11,7 @@ import React, { useState } from "react";
 import { useToast } from "@chakra-ui/toast";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 const Login = () => {
   const [show, setShow] = useState(false);
@@ -20,9 +21,33 @@ const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [picLoading, setPicLoading] = useState(false);
+  const [keys, setKeys] = useState({});
 
   const handleClick = () => {
     setShow(!show);
+  };
+
+  useEffect(() => {
+    navigate("/chats");
+  }, [keys, navigate]);
+
+  const generateRSAKeyPair = async () => {
+    //call rsa api
+    const { data } = await axios.get(
+      "http://localhost:3001/api/key/generateKeyPair"
+    );
+    if (data) {
+      const keyPair = {
+        publicKey: data.publicKey,
+        privateKey: data.privateKey,
+      };
+
+      // Convert the object to a JSON string
+      const keyPairJSON = JSON.stringify(keyPair);
+
+      // Store the JSON string in local storage
+      localStorage.setItem("keyPair", keyPairJSON);
+    }
   };
 
   const submitHandler = async () => {
@@ -63,7 +88,17 @@ const Login = () => {
         position: "bottom",
       });
       localStorage.setItem("userInfo", JSON.stringify(data));
-      setPicLoading(false);
+      // Retrieve the JSON string from local storage
+
+      const keyPairJSON = localStorage.getItem("keyPair");
+
+      // Convert the JSON string back into an object
+      const keyPair = JSON.parse(keyPairJSON);
+
+      if (!keyPair) {
+        await generateRSAKeyPair();
+        setKeys(keyPairJSON);
+      }
       navigate("/chats");
     } catch (error) {
       toast({

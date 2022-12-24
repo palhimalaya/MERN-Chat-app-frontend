@@ -7,6 +7,7 @@ const colors = require("colors");
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
+const keyGenerationRoutes = require("./routes/keyGenerationRoutes");
 
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
@@ -25,6 +26,7 @@ app.get("/", (req, res) => {
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
+app.use("/api/key", keyGenerationRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
@@ -51,8 +53,12 @@ io.on("connection", (socket) => {
     socket.emit("connected");
   });
 
-  socket.on("join chat", (room) => {
-    socket.join(room);
+  socket.on("join chat", (data) => {
+    socket.join(data.room);
+    room = data.room;
+    publicKey = data.publicKey;
+
+    socket.to(room).emit("public key", publicKey);
     console.log("User Joined Room: " + room);
   });
   socket.on("typing", (room) => socket.in(room).emit("typing"));
@@ -61,7 +67,9 @@ io.on("connection", (socket) => {
   socket.on("typing", (room) => socket.in(room).emit("typing"));
   socket.on("stop typing", (room) => socket.in(room).emit("stop typing"));
 
-  socket.on("new message", (newMessageReceived) => {
+  socket.on("new message", async (newMessageReceived) => {
+    // console.log(newMessageReceived);
+
     var chat = newMessageReceived.chat;
 
     if (!chat.users) return console.log("chat.users not defined");
@@ -69,7 +77,11 @@ io.on("connection", (socket) => {
     chat.users.forEach((user) => {
       if (user._id == newMessageReceived.sender._id) return;
 
-      socket.in(user._id).emit("message received", newMessageReceived);
+      const data = {
+        newMessageReceived,
+      };
+
+      socket.in(user._id).emit("message received", data);
     });
   });
 
