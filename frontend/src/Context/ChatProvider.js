@@ -11,6 +11,9 @@ const ChatProvider = ({ children }) => {
     JSON.parse(localStorage.getItem("notification")) || []
   );
 
+  const [publicKey, setPublicKey] = useState();
+  const [privateKey, setPrivateKey] = useState();
+
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -38,6 +41,10 @@ const ChatProvider = ({ children }) => {
         setChats,
         notification,
         setNotification,
+        publicKey,
+        setPublicKey,
+        privateKey,
+        setPrivateKey,
       }}
     >
       {children}
