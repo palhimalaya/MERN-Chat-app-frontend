@@ -1,6 +1,7 @@
 import { ArrowBackIcon } from "@chakra-ui/icons";
 import {
   Box,
+  Button,
   FormControl,
   IconButton,
   Input,
@@ -24,69 +25,66 @@ import animationData from "../animations/typing.json";
 const ENDPOINT = "http://localhost:3001";
 var socket, selectedChatCompare;
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
-  const {
-    user,
-    selectedChat,
-    setSelectedChat,
-    notification,
-    setNotification,
-    publicKey,
-    setPublicKey,
-    privateKey,
-    setPrivateKey,
-  } = useContext(ChatContext);
+  const { user, selectedChat, setSelectedChat, notification, setNotification } =
+    useContext(ChatContext);
 
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState();
-  const [newMessage, setNewMessage] = useState();
+  const [newMessage, setNewMessage] = useState("");
   const [socketConnected, setSocketConnected] = useState(false);
   const [typing, setTyping] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
+  const [image, setImage] = useState(null);
+  // const [othersPublicKey, setOthersPublicKey] = useState();
 
-  const [othersPublicKey, setOthersPublicKey] = useState();
-
-  const [localMessage, setLocalMessage] = useState([]);
-  const [latestLocalMessage, setLatestLocalMessage] = useState();
-
-  var a;
-
+  // const handleImageUpload = (event) => {
+  //   setImage(event.target.files[0]);
+  //   console.log(event.target.files[0]);
+  // };
   // Access the public and private keys
 
-  useEffect(() => {
-    // Retrieve the JSON string from local storage
-    const keyPairJSON = localStorage.getItem("keyPair");
-
-    // Convert the JSON string back into an object
-    const keyPair = JSON.parse(keyPairJSON);
-    if (!keyPair) {
-      return;
-    } else {
-      var pKey = keyPair.publicKey;
-      var prKey = keyPair.privateKey;
-    }
-
-    setPublicKey(pKey);
-    setPrivateKey(prKey);
-    console.log("public key", publicKey);
-  }, []);
-
   const encryptMessage = async () => {
+    const array = JSON.parse(localStorage.getItem("othersPublicKey"));
+    try {
+      var matchingObject = array.find(function (obj) {
+        return obj.chatId === selectedChat._id;
+      });
+
+      if (matchingObject) {
+        var othersKey = matchingObject.publicKey;
+      } else {
+        console.log(`Object with name "${selectedChat._id}" not found`);
+      }
+    } catch (error) {}
+
     const postData = {
       message: newMessage,
-      publicKey: othersPublicKey,
+      publicKey: othersKey,
     };
 
-    const { data } = await axios.post(
+    // const stringifyPostData = JSON.stringify(postData);
+    // const keyHex = process.env.REACT_APP_AES_KEY;
+    // const key = JSON.stringify(keyHex);
+    // const encrypted = CryptoJS.AES.encrypt(stringifyPostData, key).toString();
+
+    const encryptedResult = await axios.post(
       "http://localhost:3001/api/key/encryptData",
       postData
     );
-
-    const { encryptedResult } = data;
 
     return encryptedResult;
   };
 
   const decryptMessage = async (m) => {
+    const keyPairJSON = localStorage.getItem("keyPair");
+    // Convert the JSON string back into an object
+    const keyPair = JSON.parse(keyPairJSON);
+    if (!keyPair) {
+      console.log("No key pair found");
+      localStorage.removeItem("userInfo");
+    } else {
+      var privateKey = keyPair.privateKey;
+    }
     const postData = {
       message: m,
       privateKey: privateKey,
@@ -96,8 +94,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       "http://localhost:3001/api/key/decryptData",
       postData
     );
-    const { decryptedResult } = data;
-    console.log(decryptedResult);
+    // console.log(decryptedResult);
     return data;
   };
 
@@ -110,6 +107,40 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     },
   };
   const toast = useToast();
+
+  const fetchLocalMessages = async () => {
+    if (!selectedChat) return;
+
+    try {
+      let key = JSON.parse(localStorage.getItem("keyPair"));
+
+      let publicKey = key.publicKey;
+
+      socket.emit("join chat", {
+        room: selectedChat._id,
+        publicKey: publicKey,
+        publicECDHKey: JSON.parse(localStorage.getItem("ECDHPublicKey")),
+      });
+      const localMessages = JSON.parse(localStorage.getItem("localMessages"));
+      const filteredMessages = localMessages.filter(
+        (message) => message.chat._id === selectedChat._id
+      );
+
+      setMessages(filteredMessages);
+      setLoading(false);
+    } catch (error) {
+      // toast({
+      //   title: "Error Occurred! ",
+      //   description: "Failed to fetch the Messages",
+      //   status: "error",
+      //   duration: 5000,
+      //   isClosable: true,
+      //   position: "bottom",
+      // });
+    }
+
+    // setLocalMessage(localMessagesJSON);
+  };
 
   const fetchMessages = async () => {
     if (!selectedChat) return;
@@ -125,35 +156,32 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         config
       );
 
-      setMessages(data);
+      // setMessages(data);
       setLoading(false);
-      socket.emit("join chat", {
-        room: selectedChat._id,
-        publicKey: publicKey,
-      });
+      // socket.emit("join chat", {
+      //   room: selectedChat._id,
+      //   publicKey: publicKey,
+      // });
     } catch (error) {
-      toast({
-        title: "Error Occurred! ",
-        description: "Failed to fetch the Messages",
-        status: "error",
-        duration: 5000,
-        isClosable: true,
-        position: "bottom",
-      });
+      // toast({
+      //   title: "Error Occurred! ",
+      //   description: "Failed to fetch the Messages",
+      //   status: "error",
+      //   duration: 5000,
+      //   isClosable: true,
+      //   position: "bottom",
+      // });
     }
   };
 
   const sendMessage = async (e) => {
     if (e.key === "Enter" && newMessage) {
       socket.emit("stop typing", selectedChat._id);
-      a = await encryptMessage().then((res) => {
+      const a = await encryptMessage().then((res) => {
         return res;
       });
 
       const encryptedMessage = a.data;
-
-      // console.log(encryptedResult.data);
-
       try {
         const config = {
           headers: {
@@ -170,7 +198,6 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           },
           config
         );
-
         //sending message from socket
         socket.emit("new message", data);
 
@@ -178,12 +205,16 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
           ...data,
           content: newMessage,
         };
-        localStorage.setItem("localMessages", updatedMessageReceived);
+        //save updatedMessageReceived to local storage
         setMessages([...messages, updatedMessageReceived]);
+        localStorage.setItem(
+          "localMessages",
+          JSON.stringify([...messages, updatedMessageReceived])
+        );
       } catch (error) {
         toast({
           title: "Error Occurred! ",
-          description: "Failed to send the Message",
+          description: "Failed to send the Message or message is too large",
           status: "error",
           duration: 5000,
           isClosable: true,
@@ -191,6 +222,27 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         });
       }
     }
+    // if (image) {
+    //   const formData = new FormData();
+    //   formData.append("image", image);
+    //   formData.append("chatId", selectedChat._id);
+    //   const config = {
+    //     headers: {
+    //       "Content-Type": "multipart/form-data",
+    //       Authorization: `Bearer ${user.token}`,
+    //     },
+    //   };
+
+    //   const { data } = await axios.post(
+    //     "http://localhost:3001/image-upload",
+    //     formData,
+    //     config
+    //   );
+    //   console.log(data);
+    //   //sending image from socket
+    //   socket.emit("image", data.filename);
+    //   setImage(null);
+    // }
   };
 
   useEffect(() => {
@@ -199,52 +251,81 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     socket.on("connected", () => setSocketConnected(true));
     socket.on("typing", () => setIsTyping(true));
     socket.on("stop typing", () => setIsTyping(false));
-
     // eslint-disable-next-line
   }, []);
 
   useEffect(() => {
     fetchMessages();
+    fetchLocalMessages();
 
     selectedChatCompare = selectedChat;
-    socket.on("public key", (data) => {
-      localStorage.setItem("othersPublicKey", data);
+    socket.on("public key", ({ room, publicKey }) => {
+      let data = {
+        chatId: room,
+        publicKey: publicKey,
+      };
+      localStorage.setItem(
+        "othersPublicECDHKey",
+        JSON.stringify(data.publicECDHKey)
+      );
 
-      // console.log(data); // prints the value of the additionalData property
+      try {
+        var array = JSON.parse(localStorage.getItem("othersPublicKey"));
+        var existingObject = array.find(function (obj) {
+          // console.log(
+          //   JSON.stringify(obj.chatId) === JSON.stringify(data.chatId)
+          // );
+          return JSON.stringify(obj.chatId) === JSON.stringify(data.chatId);
+        });
+
+        if (!existingObject) {
+          // If the object is not found, add it to the array
+          console.log(room + " is not present in the array");
+          array.push(data);
+          localStorage.setItem("othersPublicKey", JSON.stringify(array));
+        }
+      } catch (error) {
+        localStorage.setItem("othersPublicKey", JSON.stringify([data]));
+      }
+
+      // console.log("r", publicKey); // prints the value of the additionalData property
     });
-    const othersKey = localStorage.getItem("othersPublicKey");
-    setOthersPublicKey(othersKey);
-    // console.log(othersKey);
 
     // eslint-disable-next-line
   }, [selectedChat]);
 
   useEffect(() => {
-    socket.on("message received", ({ newMessageReceived }) => {
-      // console.log("message received", newMessageReceived.content
-      const data = {
-        ...newMessageReceived,
-        chat: { ...newMessageReceived.chat },
-      };
+    socket.on("message received", ({ newMessageReceived, encD }) => {
+      // setLocalMessage(localMessagesJSON);
 
-      console.log("message received", data.chat._id);
-      if (
-        !selectedChatCompare || // if chat is not selected or doesn't match current chat
-        selectedChatCompare._id !== newMessageReceived.chat._id
-      ) {
-        //give notification
-        if (!notification.includes(data)) {
-          setNotification([data, ...notification]);
-          //save notification to localstorage
+      console.log("message received", newMessageReceived.content);
 
-          setFetchAgain(!fetchAgain);
+      // console.log("message received", data.chat._id);
+      decryptMessage(newMessageReceived.content).then((res) => {
+        const m = res;
+        const data = {
+          ...newMessageReceived,
+          content: res,
+        };
+        console.log(m);
+        if (
+          !selectedChatCompare || // if chat is not selected or doesn't match current chat
+          selectedChatCompare._id !== newMessageReceived.chat._id
+        ) {
+          //give notification
+          if (!notification.includes(data)) {
+            setNotification([data, ...notification]);
+            //save notification to localstorage
+            setFetchAgain(!fetchAgain);
+          }
+        } else {
+          setMessages([...messages, data]);
+          localStorage.setItem(
+            "localMessages",
+            JSON.stringify([...messages, data])
+          );
         }
-      } else {
-        setLatestLocalMessage(data.chat.content);
-        setLocalMessage([...localMessage, data.chat.content]);
-
-        setMessages([...messages, data]);
-      }
+      });
     });
   });
 
@@ -348,6 +429,14 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
                 onChange={typingHandle}
                 value={newMessage}
               />
+              {/* <div className="image-upload">
+                <input
+                  id="file-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                />
+              </div> */}
             </FormControl>
           </Box>
         </>

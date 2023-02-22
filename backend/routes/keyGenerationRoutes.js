@@ -5,6 +5,7 @@ const {
   keyGeneration,
   encryptData,
   decryptData,
+  generateECDHKeys,
 } = require("../controllers/keyController");
 
 const router = express.Router();

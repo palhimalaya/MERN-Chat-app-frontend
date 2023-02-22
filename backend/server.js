@@ -8,6 +8,8 @@ const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const keyGenerationRoutes = require("./routes/keyGenerationRoutes");
+const fs = require("fs");
+const upload = require("./helper/multer");
 
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 
@@ -18,6 +20,11 @@ connectDB();
 app.use(cors());
 
 app.use(express.json());
+
+app.post("/image-upload", upload.single("image"), (req, res) => {
+  console.log("uploaded image:", req.file.filename);
+  res.json({ filename: req.file.filename });
+});
 
 app.get("/", (req, res) => {
   res.send("Api is working successfully");
@@ -57,8 +64,7 @@ io.on("connection", (socket) => {
     socket.join(data.room);
     room = data.room;
     publicKey = data.publicKey;
-
-    socket.to(room).emit("public key", publicKey);
+    socket.to(room).emit("public key", { room, publicKey });
     console.log("User Joined Room: " + room);
   });
   socket.on("typing", (room) => socket.in(room).emit("typing"));
@@ -76,13 +82,19 @@ io.on("connection", (socket) => {
 
     chat.users.forEach((user) => {
       if (user._id == newMessageReceived.sender._id) return;
+      const encD = Buffer.from(newMessageReceived.content, "hex");
 
       const data = {
         newMessageReceived,
+        encD: encD,
       };
 
       socket.in(user._id).emit("message received", data);
     });
+  });
+  socket.on("image", (data) => {
+    console.log("received image");
+    io.emit("image", data);
   });
 
   socket.off("setup", () => {

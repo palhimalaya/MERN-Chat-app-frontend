@@ -3,7 +3,8 @@ const crypto = require("crypto");
 
 const keyGeneration = asyncHandler(async (req, res) => {
   //generate rsa key pair
-  const { publicKey, privateKey } = await crypto.generateKeyPairSync("rsa", {
+
+  const { privateKey, publicKey } = crypto.generateKeyPairSync("rsa", {
     modulusLength: 4096,
     publicKeyEncoding: {
       type: "spki",
@@ -13,7 +14,7 @@ const keyGeneration = asyncHandler(async (req, res) => {
       type: "pkcs8",
       format: "pem",
       cipher: "aes-256-cbc",
-      passphrase: "top secret",
+      passphrase: "your-passphrase",
     },
   });
 
@@ -23,53 +24,68 @@ const keyGeneration = asyncHandler(async (req, res) => {
 const encryptData = asyncHandler(async (req, res) => {
   // Encrypt the data using the public key
   // Define the chunk size (must be smaller than the key size)
-  const datas = await req.body;
-  const publicKey = datas.publicKey;
-  const data = datas.message;
-  const chunkSize = 128;
-  // Split the data into chunks
-  const chunks = [];
-  for (let i = 0; i < data.length; i += chunkSize) {
-    chunks.push(data.slice(i, i + chunkSize));
-  }
-  // Encrypt or decrypt the chunks
-  const result = [];
-  for (const chunk of chunks) {
-    result.push(crypto.publicEncrypt(publicKey, chunk));
-  }
-  // Concatenate the encrypted or decrypted chunks
-  const encryptedResult = Buffer.concat(result);
 
-  res.send({ encryptedResult });
+  // const keyHex = process.env.AES_KEY;
+  // const key = keyHex.toString();
+  const data = await req.body;
+
+  // Use the decrypted data as needed
+
+  const publicKey = data.publicKey;
+  const message = data.message;
+  const chunkSize = 50;
+
+  function chunk(str, size) {
+    const numChunks = Math.ceil(str.length / size);
+    const chunks = new Array(numChunks);
+
+    for (let i = 0, o = 0; i < numChunks; ++i, o += size) {
+      chunks[i] = str.substr(o, size);
+    }
+
+    return chunks;
+  }
+
+  const chunks = chunk(message, chunkSize);
+  const encryptedChunks = chunks.map((chunk) => {
+    const buffer = Buffer.from(chunk, "utf8");
+    const encrypted = crypto.publicEncrypt(
+      {
+        key: publicKey,
+        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      },
+      buffer
+    );
+
+    return encrypted.toString("base64");
+  });
+
+  res.send(encryptedChunks);
 });
 
 const decryptData = asyncHandler(async (req, res) => {
   // Decrypt the encrypted data using the private key
   // Define the chunk size (must be smaller than the key size)
-  const datas = await req.body;
+  const data = await req.body;
 
-  const privateKey = datas.privateKey;
-  const encrypted = datas.message;
+  const privateKey = data.privateKey;
+  const encryptedChunks = JSON.parse(data.message);
 
-  console.log(encrypted);
+  const decryptedChunks = encryptedChunks.map((encrypted) => {
+    const buffer = Buffer.from(encrypted, "base64");
+    const decrypted = crypto.privateDecrypt(
+      {
+        key: privateKey,
+        passphrase: "your-passphrase",
+        padding: crypto.constants.RSA_PKCS1_OAEP_PADDING,
+      },
+      buffer
+    );
 
-  const chunkSize = 256;
+    return decrypted.toString("utf8");
+  });
 
-  // Split the data into chunks
-  const chunks = [];
-  for (let i = 0; i < encrypted.length; i += chunkSize) {
-    chunks.push(encrypted.slice(i, i + chunkSize));
-  }
-
-  // Encrypt or decrypt the chunks
-  const result = [];
-  for (const chunk of chunks) {
-    result.push(crypto.privateDecrypt(privateKey, chunk));
-  }
-
-  // Concatenate the encrypted or decrypted chunks
-  const decryptedResult = Buffer.concat(result);
-  console.log(decryptedResult.toString());
+  const decryptedResult = decryptedChunks.join("");
 
   res.send(decryptedResult); // prints "Hello, world!"
 });

@@ -12,6 +12,7 @@ import { useToast } from "@chakra-ui/toast";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { useEffect } from "react";
+import crypto from "crypto";
 
 const Login = () => {
   const [show, setShow] = useState(false);
@@ -54,7 +55,7 @@ const Login = () => {
     setPicLoading(true);
     if (!email || !password) {
       toast({
-        title: "Please Fill all the Feilds",
+        title: "Please Fill all the Fields",
         status: "warning",
         duration: 5000,
         isClosable: true,
@@ -99,6 +100,7 @@ const Login = () => {
         await generateRSAKeyPair();
         setKeys(keyPairJSON);
       }
+
       navigate("/chats");
     } catch (error) {
       toast({
